@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- index.html <head> içine -->
+    <link rel="manifest" href="./manifest.json">
+
+    <meta name="theme-color" content="#0b1226">
+
+    <!-- Favicon / Icons -->
+    <link rel="icon" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- iOS "app-like" görünüm -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Snake .io — Mobile</title>
+<style>
+  :root{
+    --board-size: min(86vmin, 560px);
+    --card: rgba(255,255,255,.06);
+    --stroke: rgba(255,255,255,.12);
+    --text: #e5e7eb;
+    --bg1:#0b1022; --bg2:#060a1a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    display:grid;place-items:center;color:var(--text);
+    background:radial-gradient(120% 120% at 50% 20%, var(--bg1), var(--bg2));
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Inter, Roboto, Arial;
+  }
+  .wrap{display:grid;gap:12px;place-items:center}
+  .topbar{
+    width:var(--board-size); display:flex; justify-content:space-between; align-items:center;
+    padding:8px 10px; border-radius:14px; background:var(--card); backdrop-filter:blur(8px);
+    box-shadow:0 8px 24px rgba(0,0,0,.25); font-size:14px
+  }
+  .score span{display:inline-block; min-width:48px; text-align:center; padding:4px 10px; border-radius:10px; background:var(--card)}
+  .controls{display:flex; gap:8px; align-items:center}
+  .btn{
+    border:1px solid var(--stroke); background:var(--card); color:#fff;
+    padding:6px 10px; border-radius:10px; cursor:pointer; user-select:none;
+  }
+  .btn:hover{background:rgba(255,255,255,.12)}
+  canvas{
+    width:var(--board-size); height:var(--board-size); display:block; border-radius:18px;
+    background:#0b1226; /* single solid color */
+    box-shadow:0 20px 50px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .hint{opacity:.7; font-size:12px}
+  /* Mobile D-Pad */
+  .dpad{
+    width:var(--board-size); display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,58px);
+    gap:10px; margin-top:2px; user-select:none;
+  }
+  .dpad .d{
+    background:var(--card); border:1px solid var(--stroke); border-radius:12px;
+    display:flex; align-items:center; justify-content:center; font-weight:700; letter-spacing:.4px;
+    box-shadow:0 6px 16px rgba(0,0,0,.25); touch-action:none;
+  }
+  .d:active{transform:translateY(1px); background:rgba(255,255,255,.12)}
+  @media (min-width: 720px){ .dpad{display:none} }
+
+  /* Settings modal */
+  .modal{ position:fixed; inset:0; display:none; place-items:center; z-index:20; background:rgba(0,0,0,.45) }
+  .modal.open{ display:grid }
+  .sheet{
+    width:min(92vw, 520px); max-height:86vh; overflow:auto;
+    background:rgba(10,12,20,.98); border:1px solid var(--stroke); border-radius:16px;
+    box-shadow:0 20px 60px rgba(0,0,0,.55); padding:14px;
+  }
+  .row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:10px 0}
+  .section{margin:12px 0 6px; font-weight:700; opacity:.9}
+  .radio-group{display:flex; gap:8px; flex-wrap:wrap}
+  .radio{
+    padding:6px 10px; border-radius:10px; background:var(--card); border:1px solid var(--stroke); cursor:pointer; user-select:none;
+  }
+  .radio.active{outline:2px solid #0ea5e9; background:rgba(14,165,233,.18)}
+  .toggle{ display:inline-flex; align-items:center; gap:8px; cursor:pointer }
+  .toggle input{appearance:none; width:38px; height:22px; border-radius:999px; background:#334155; position:relative; border:1px solid var(--stroke)}
+  .toggle input:checked{background:#0ea5e9}
+  .toggle input::after{content:""; position:absolute; width:16px; height:16px; border-radius:50%; background:#fff; top:2px; left:2px; transition:.18s}
+  .toggle input:checked::after{left:20px}
+  .slider{flex:1}
+  .emoji-grid{display:grid; grid-template-columns:repeat(8, 1fr); gap:6px}
+  .emoji{
+    font-size:20px; line-height:1; text-align:center; padding:8px 0; border-radius:10px; background:var(--card); border:1px solid var(--stroke); cursor:pointer;
+  }
+  .emoji.active{outline:2px solid #22d3ee; background:rgba(34,211,238,.16)}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="score">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span></div>
+      <div class="controls">
+        <button class="btn" id="settingsBtn">⚙️ Settings</button>
+        <button class="btn" id="pauseBtn" title="Space">Pause</button>
+        <button class="btn" id="resetBtn" title="R">Reset</button>
+      </div>
+    </div>
+
+    <canvas id="game" width="600" height="600" aria-label="Snake Game"></canvas>
+    <div class="hint">← ↑ → ↓ / WASD • Space = Pause • R = Reset</div>
+
+    <!-- Mobile D-Pad -->
+    <div class="dpad" aria-hidden="true">
+      <div></div><div class="d" data-dir="up">▲</div><div></div>
+      <div class="d" data-dir="left">◀</div><div class="d" data-dir="down">▼</div><div class="d" data-dir="right">▶</div>
+      <div></div><div></div><div></div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="modal">
+    <div class="sheet">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800">Settings</div>
+        <button class="btn" id="closeModal">Close</button>
+      </div>
+
+      <div class="section">Board Size</div>
+      <div class="radio-group" id="boardSizeGroup">
+        <div class="radio" data-size="15">Small (15×15)</div>
+        <div class="radio" data-size="21">Medium (21×21)</div>
+        <div class="radio" data-size="27">Large (27×27)</div>
+      </div>
+
+      <div class="section">Difficulty</div>
+      <div class="radio-group" id="difficultyGroup">
+        <div class="radio" data-diff="easy">Easy</div>
+        <div class="radio" data-diff="medium">Medium (Obstacles)</div>
+        <div class="radio" data-diff="hard">Hard (More/Faster Obstacles)</div>
+      </div>
+
+      <div class="section">Speed</div>
+      <div class="row">
+        <input type="range" min="4" max="14" step="1" id="speedSlider" class="slider">
+        <div id="speedLabel" style="width:44px;text-align:right">6</div>
+      </div>
+
+      <div class="section">Feedback</div>
+      <div class="row">
+        <label class="toggle"><span>Sound</span><input type="checkbox" id="soundToggle"></label>
+        <label class="toggle"><span>Vibration</span><input type="checkbox" id="vibToggle"></label>
+        <label class="toggle"><span>Wrap</span><input type="checkbox" id="wrapToggle"></label>
+      </div>
+
+      <div class="section">Snake Head (Emoji)</div>
+      <div class="emoji-grid" id="emojiGrid"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== Settings & persistence =====
+  const DEFAULTS = { board:21, difficulty:'easy', baseSpeed:6, wrap:true, sound:true, vibration:true, emoji:'😎' };
+
+  // FULL list you sent (all included)
+  const EMOJI_CHOICES = [
+    '😀','😁','😂','😃','😅','😆','😉','😊','😋','😍','😘','🥰','😗','😚','🤗','🤩','🤔','🙄','😴','🥱','🤑','🤯','😬','🥵','😡','🤬','🤢','🤮','🤧','🥺','🤠','🤡','🤥','😈','🤓','☠','👻','👽','👾','🤖','💩','😸','🐱‍👤','🐱‍🏍','🐱‍💻','🐱‍🐉','🐱‍👓','🙈','🐱','🐶','🐷','🐗','🐹','🦄','🐔','🐸','🐨','🐃','🐎','🐏','🦨','🦥','🐇','🐬','🐳','🐋','🐠','🐡','🦐','🦑','🐙','🦞','🦀','🐚','🦆','🐓','🦃','🐧','🐌','🐛','🦋','🦇','🦚','🦟','🦗','🐒','🦍','🦧','🦓','👩‍🍳','🎅','🤶','👨‍🚀','👩‍🚀','🎆','🎍','🎎','🎟','🎞','🍔','🍟','🍕','🍿','🧂','🥓','🥚','🥯','🥨','🥐','🍞','🧈','🥞','🧇','🍳','🥖','🧀','🥗','🥙','🥪','🌮','🌯','🥫','🍖','🍚','🥩','🍠','🥟','🥡','🍣','🦪','🍛','🍧','🍬','🍫','🧃','🍀','🌿','☘','🍁','🌸','💐','🌞','☃','❤','🧡','💛','💚','💙','💜','🤎','🖤','🤍'
+  ];
+
+  // Optional hand-tuned colors for a few; others will use auto-color
+  const EMOJI_COLOR = {
+    '😎':'#22d3ee','🐸':'#22c55e','🐱':'#f59e0b','🔥':'#ef4444','🌟':'#eab308',
+    '🦊':'#f97316','💜':'#a855f7','💙':'#3b82f6','💖':'#ec4899','👾':'#8b5cf6',
+    '🖤':'#4b5563','🍀':'#10b981','😀':'#fbbf24','😁':'#f59e0b','😂':'#f59e0b','😃':'#fbbf24'
+  };
+
+  let settings = loadSettings();
+  function loadSettings(){ try{ return {...DEFAULTS, ...(JSON.parse(localStorage.getItem('snake-settings')||'{}'))}; }catch(e){ return {...DEFAULTS}; } }
+  function saveSettings(){ localStorage.setItem('snake-settings', JSON.stringify(settings)); }
+
+  // ===== Audio (gesture unlock) =====
+  let audioCtx = null, audioUnlocked = false;
+  function ensureAudio(){
+    if (audioUnlocked || !settings.sound) return;
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const unlock = () => { audioCtx.resume().then(()=>{ audioUnlocked=true; window.removeEventListener('pointerdown',unlock); window.removeEventListener('keydown',unlock); }); };
+    window.addEventListener('pointerdown', unlock); window.addEventListener('keydown', unlock);
+  }
+  function beep(freq=880, dur=0.08, type='sine', vol=0.06){
+    if (!settings.sound || !audioUnlocked || !audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.value = freq; g.gain.value = vol;
+    o.connect(g); g.connect(audioCtx.destination); o.start();
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + dur);
+    o.stop(audioCtx.currentTime + dur + 0.02);
+  }
+
+  // ===== Canvas =====
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const MAX_DPR = 2;
+  function fitCanvas(){
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
+    const css = canvas.getBoundingClientRect();
+    canvas.width = Math.floor(css.width * dpr);
+    canvas.height = Math.floor(css.height * dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  new ResizeObserver(fitCanvas).observe(canvas);
+  fitCanvas();
+
+  // ===== Color utils =====
+  const hexToRgb = hex => { hex=hex.replace('#',''); const n=parseInt(hex,16); return {r:(n>>16)&255,g:(n>>8)&255,b:n&255}; };
+  const rgbToHex = ({r,g,b}) => '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+  const mix = (c1,c2,t)=>{const a=hexToRgb(c1),b=hexToRgb(c2);return rgbToHex({r:Math.round(a.r+(b.r-a.r)*t),g:Math.round(a.g+(b.g-a.g)*t),b:Math.round(a.b+(b.b-a.b)*t)})};
+  const lighten = (hex,t=.2)=>mix(hex,'#ffffff',t);
+  const darken  = (hex,t=.2)=>mix(hex,'#000000',t);
+
+  // Auto color from emoji (hash → HSL)
+  function hashEmoji(str){
+    let h=0; for(let i=0;i<str.length;i++){ h=((h<<5)-h)+str.codePointAt(i); h|=0; }
+    return Math.abs(h);
+  }
+  function hslToHex(h,s,l){ // s,l in [0..1]
+    const a = s*Math.min(l,1-l);
+    const f = n=>{
+      const k=(n+h/30)%12;
+      const c=l-a*Math.max(-1,Math.min(k-3,Math.min(9-k,1)));
+      return Math.round(255*c).toString(16).padStart(2,'0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+  }
+  function colorFromEmoji(e){
+    if (EMOJI_COLOR[e]) return EMOJI_COLOR[e];
+    const h = hashEmoji(e) % 360;        // hue
+    return hslToHex(h, 0.75, 0.55);      // vivid color
+  }
+
+  // ===== Game state =====
+  let CELLS, snake, dir, nextDir, food, score, best, paused, obstacles, obstacleTimer, turnedThisTick, accumulator, lastTs;
+  const scoreEl = document.getElementById('score'); const bestEl = document.getElementById('best');
+  best = +localStorage.getItem('snake-best') || 0; bestEl.textContent = best;
+
+  function init(){
+    ensureAudio();
+    CELLS = settings.board;
+    obstacles = []; obstacleTimer = 0;
+
+    const mid = Math.floor(CELLS/2);
+    snake = [{x:mid-1,y:mid},{x:mid,y:mid},{x:mid+1,y:mid}];
+    dir = {x:1,y:0}; nextDir = {...dir};
+    food = spawnFood();
+    score = 0; scoreEl.textContent = score;
+    paused = false; turnedThisTick = false;
+    lastTs = performance.now(); accumulator = 0;
+
+    draw(false);
+  }
+
+  function isOccupied(x,y){
+    if (snake?.some(s=>s.x===x&&s.y===y)) return true;
+    if (obstacles?.some(o=>o.x===x&&o.y===y)) return true;
+    return false;
+  }
+  function spawnFood(){
+    for (let tries=0; tries<200; tries++){
+      const f = {x:Math.floor(Math.random()*CELLS), y:Math.floor(Math.random()*CELLS)};
+      if (!isOccupied(f.x,f.y)) return f;
+    }
+    return {x:0,y:0};
+  }
+  function spawnObstacle(){
+    const maxObs = Math.floor(CELLS*CELLS*0.12);
+    if (obstacles.length >= maxObs) return;
+    for (let tries=0; tries<50; tries++){
+      const o = {x:Math.floor(Math.random()*CELLS), y:Math.floor(Math.random()*CELLS)};
+      const head = snake[snake.length-1];
+      const dist = Math.abs(o.x-head.x)+Math.abs(o.y-head.y);
+      if (dist < 3) continue;
+      if (o.x===food.x && o.y===food.y) continue;
+      if (!isOccupied(o.x,o.y)) { obstacles.push(o); return; }
+    }
+  }
+  function speedNow(){ const bonus = Math.floor(score/6); return Math.min(16, settings.baseSpeed + bonus); }
+
+  function step(){
+    dir = nextDir; turnedThisTick = false;
+    const head = snake[snake.length-1];
+    let nx = head.x + dir.x, ny = head.y + dir.y;
+
+    if (settings.wrap){
+      if (nx<0) nx=CELLS-1; if (nx>=CELLS) nx=0;
+      if (ny<0) ny=CELLS-1; if (ny>=CELLS) ny=0;
+    } else {
+      if (nx<0||nx>=CELLS||ny<0||ny>=CELLS) return gameOver();
+    }
+
+    if (obstacles.some(o=>o.x===nx&&o.y===ny)) return gameOver();
+    if (snake.some(s=>s.x===nx&&s.y===ny)) return gameOver();
+
+    snake.push({x:nx,y:ny});
+    if (nx===food.x && ny===food.y){
+      score++; scoreEl.textContent=score;
+      if (score>best){ best=score; bestEl.textContent=best; localStorage.setItem('snake-best', best); }
+      food = spawnFood();
+      if (settings.vibration && navigator.vibrate) navigator.vibrate(24);
+      beep(1200, 0.06, 'triangle', 0.07);
+    } else {
+      snake.shift();
+    }
+
+    if (settings.difficulty !== 'easy'){
+      obstacleTimer++;
+      const threshold = settings.difficulty==='medium' ? 12 : 6;
+      if (obstacleTimer >= threshold){ spawnObstacle(); obstacleTimer = 0; }
+    }
+  }
+
+  function gameOver(){
+    paused = true;
+    if (settings.vibration && navigator.vibrate) navigator.vibrate(140);
+    beep(220, 0.25, 'sawtooth', 0.05);
+    draw(true);
+  }
+
+  // ===== Input =====
+  function setDir(nx, ny){
+    if (turnedThisTick) return;
+    if (nx + dir.x === 0 && ny + dir.y === 0) return;
+    nextDir = {x:nx, y:ny}; turnedThisTick = true;
+  }
+  window.addEventListener('keydown', e => {
+    if (e.key === ' '){ paused = !paused; pauseBtn.textContent = paused? 'Resume':'Pause'; e.preventDefault(); return; }
+    if (e.key.toLowerCase() === 'r'){ init(); pauseBtn.textContent = 'Pause'; return; }
+    const k = e.key.toLowerCase();
+    if (k==='arrowup'||k==='w'){ setDir(0,-1); e.preventDefault(); }
+    else if (k==='arrowdown'||k==='s'){ setDir(0,1); e.preventDefault(); }
+    else if (k==='arrowleft'||k==='a'){ setDir(-1,0); e.preventDefault(); }
+    else if (k==='arrowright'||k==='d'){ setDir(1,0); e.preventDefault(); }
+  }, {passive:false});
+  document.querySelectorAll('.dpad .d').forEach(btn=>{
+    btn.addEventListener('pointerdown', () => {
+      const d = btn.dataset.dir;
+      if (d==='up') setDir(0,-1);
+      if (d==='down') setDir(0,1);
+      if (d==='left') setDir(-1,0);
+      if (d==='right') setDir(1,0);
+    });
+  });
+
+  // ===== Render =====
+  const BOARD_BG = '#0b1226';
+  function roundRect(ctx, x, y, w, h, r){
+    if (r > w/2) r = w/2; if (r > h/2) r = h/2;
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y,   x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x,   y+h, r);
+    ctx.arcTo(x,   y+h, x,   y,   r);
+    ctx.arcTo(x,   y,   x+w, y,   r);
+    ctx.fill();
+  }
+
+  function draw(isGameOver=false){
+    const {width: W, height: H} = canvas.getBoundingClientRect();
+    const cell = Math.floor(Math.min(W,H) / CELLS);
+    const offX = Math.floor((W - cell*CELLS)/2);
+    const offY = Math.floor((H - cell*CELLS)/2);
+
+    // SOLID background
+    ctx.fillStyle = BOARD_BG;
+    ctx.fillRect(0,0,W,H);
+
+    // grid (comment out to hide)
+    ctx.strokeStyle = 'rgba(255,255,255,.06)';
+    ctx.lineWidth = 1; ctx.beginPath();
+    for (let i=0;i<=CELLS;i++){
+      const x = offX + i*cell, y = offY + i*cell;
+      ctx.moveTo(offX, y); ctx.lineTo(offX + cell*CELLS, y);
+      ctx.moveTo(x, offY); ctx.lineTo(x, offY + cell*CELLS);
+    }
+    ctx.stroke();
+
+    // obstacles
+    if (obstacles.length){
+      ctx.fillStyle = '#334155';
+      for (const o of obstacles){
+        const px = offX + o.x*cell, py = offY + o.y*cell;
+        roundRect(ctx, px+1, py+1, cell-2, cell-2, Math.floor(cell*0.2));
+      }
+    }
+
+    // food
+    const fx = offX + food.x*cell + cell/2, fy = offY + food.y*cell + cell/2;
+    const fr = Math.floor(cell*0.35);
+    const fg = ctx.createRadialGradient(fx, fy, 2, fx, fy, fr);
+    fg.addColorStop(0, '#fff6f6'); fg.addColorStop(0.4, '#ff6b6b'); fg.addColorStop(1,'rgba(255,0,0,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(fx, fy, fr, 0, Math.PI*2); ctx.fill();
+
+    // snake color from selected emoji (auto)
+    const base = colorFromEmoji(settings.emoji);
+    const bodyTop = lighten(base, 0.18), bodyBot = darken(base, 0.18);
+
+    // snake
+    for (let i=0;i<snake.length;i++){
+      const s = snake[i];
+      const px = offX + s.x*cell, py = offY + s.y*cell;
+      if (i === snake.length-1){
+        ctx.font = `${Math.floor(cell*0.8)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(settings.emoji, px + cell/2, py + cell/2 + 1);
+      } else {
+        const r = Math.floor(cell*0.25);
+        const grad = ctx.createLinearGradient(px, py, px, py+cell);
+        grad.addColorStop(0, bodyTop); grad.addColorStop(1, bodyBot);
+        ctx.fillStyle = grad;
+        roundRect(ctx, px+1, py+1, cell-2, cell-2, r);
+      }
+    }
+
+    if (isGameOver){
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0,0,W,H);
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 24px system-ui, Segoe UI, Roboto';
+      ctx.textAlign = 'center'; ctx.fillText('Game Over', W/2, H/2 - 6);
+      ctx.font = '14px system-ui, Segoe UI, Roboto';
+      ctx.fillText('R to restart • Space to pause/resume', W/2, H/2 + 18);
+    }
+  }
+
+  // ===== Loop =====
+  function loop(ts){
+    const dt = (ts - lastTs)/1000; lastTs = ts;
+    if (!paused){
+      accumulator += dt;
+      const stepTime = 1 / speedNow();
+      while (accumulator >= stepTime){ accumulator -= stepTime; step(); }
+    }
+    draw(false);
+    requestAnimationFrame(loop);
+  }
+
+  // ===== UI wiring =====
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  pauseBtn.addEventListener('click', ()=>{ paused = !paused; pauseBtn.textContent = paused? 'Resume':'Pause'; });
+  resetBtn.addEventListener('click', ()=>{ init(); pauseBtn.textContent='Pause'; });
+
+  const modal = document.getElementById('modal');
+  const openBtn = document.getElementById('settingsBtn');
+  const closeBtn = document.getElementById('closeModal');
+  const boardGroup = document.getElementById('boardSizeGroup');
+  const diffGroup = document.getElementById('difficultyGroup');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedLabel = document.getElementById('speedLabel');
+  const soundToggle = document.getElementById('soundToggle');
+  const vibToggle = document.getElementById('vibToggle');
+  const wrapToggle = document.getElementById('wrapToggle');
+  const emojiGrid = document.getElementById('emojiGrid');
+
+  openBtn.addEventListener('click', ()=>{ modal.classList.add('open'); renderSettingsUI(); });
+  closeBtn.addEventListener('click', ()=> modal.classList.remove('open'));
+  modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.classList.remove('open'); });
+
+  function renderSettingsUI(){
+    boardGroup.querySelectorAll('.radio').forEach(r=> r.classList.toggle('active', +r.dataset.size===settings.board));
+    diffGroup.querySelectorAll('.radio').forEach(r=> r.classList.toggle('active', r.dataset.diff===settings.difficulty));
+    speedSlider.value = settings.baseSpeed; speedLabel.textContent = settings.baseSpeed;
+    soundToggle.checked = settings.sound; vibToggle.checked = settings.vibration; wrapToggle.checked = settings.wrap;
+
+    if (!emojiGrid.childElementCount){
+      EMOJI_CHOICES.forEach(e=>{ const d=document.createElement('div'); d.className='emoji'; d.textContent=e; d.dataset.emoji=e; emojiGrid.appendChild(d); });
+    }
+    emojiGrid.querySelectorAll('.emoji').forEach(d=> d.classList.toggle('active', d.dataset.emoji===settings.emoji));
+  }
+
+  boardGroup.addEventListener('click', e=>{ const r=e.target.closest('.radio'); if(!r) return;
+    settings.board=+r.dataset.size; saveSettings(); boardGroup.querySelectorAll('.radio').forEach(n=>n.classList.remove('active')); r.classList.add('active'); init(); });
+  diffGroup.addEventListener('click', e=>{ const r=e.target.closest('.radio'); if(!r) return;
+    settings.difficulty=r.dataset.diff; saveSettings(); diffGroup.querySelectorAll('.radio').forEach(n=>n.classList.remove('active')); r.classList.add('active'); init(); });
+  speedSlider.addEventListener('input', e=>{ settings.baseSpeed=+e.target.value; speedLabel.textContent=settings.baseSpeed; saveSettings(); });
+  soundToggle.addEventListener('change', e=>{ settings.sound=e.target.checked; saveSettings(); ensureAudio(); });
+  vibToggle.addEventListener('change', e=>{ settings.vibration=e.target.checked; saveSettings(); });
+  wrapToggle.addEventListener('change', e=>{ settings.wrap=e.target.checked; saveSettings(); init(); });
+  emojiGrid.addEventListener('click', e=>{ const d=e.target.closest('.emoji'); if(!d) return;
+    settings.emoji=d.dataset.emoji; saveSettings(); emojiGrid.querySelectorAll('.emoji').forEach(n=> n.classList.toggle('active', n===d)); });
+
+  // Start
+  init();
+  requestAnimationFrame(loop);
+})();
+</script>
+<script>
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service_worker.js'); 
+    });
+    }
+</script>
+
+</body>
+</html>
