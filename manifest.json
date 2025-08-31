@@ -1,17 +1,49 @@
 {
+  "id": "com.cagla.snakeio",
   "name": "Snake.io — Emoji Snake",
   "short_name": "Snake.io",
+  "description": "A fun and addictive emoji snake game where you eat, grow, and survive! Play offline, choose your head emoji, pick board sizes and difficulties, and chase high scores.",
+  "lang": "en-US",
+  "dir": "ltr",
+
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1226",
   "theme_color": "#0b1226",
+
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+
     { "src": "icons/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
     { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+  ],
 
+  "screenshots": [
+    { "src": "screenshots/gameplay-1.png", "sizes": "1080x1920", "type": "image/png" },
+    { "src": "screenshots/gameplay-2.png", "sizes": "1080x1920", "type": "image/png" }
+  ],
+
+  "launch_handler": {
+    "client_mode": ["focus-existing", "navigate-existing", "auto"]
+  },
+
+  "scope_extensions": [
+    {
+      "origin": "https://cagla-14.github.io/Snake-io/"
+    }
+  ],
+
+  "categories": ["game", "arcade"],
+
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.cagla.snakeio",
+      "id": "com.cagla.snakeio"
+    }
+  ],
+  "prefer_related_applications": false
 }
